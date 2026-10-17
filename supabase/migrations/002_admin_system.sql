@@ -66,6 +66,7 @@ end;
 $$;
 
 drop trigger if exists profiles_no_role_escalation on public.profiles;
+drop trigger if exists profiles_guard_role on public.profiles;
 create trigger profiles_guard_role
   before update on public.profiles
   for each row execute function public.guard_profile_role();
