@@ -17,6 +17,10 @@ on:
         description: 'Email address to promote to admin (leave empty to skip)'
         type: string
         default: ''
+      test_sql_b64:
+        description: 'Base64-encoded SQL to run as a test (leave empty to skip)'
+        type: string
+        default: ''
 
 env:
   PGURI: postgresql://postgres.cqdqljmvlrtqwzzgqiqt@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
@@ -67,3 +71,13 @@ jobs:
           psql "$PGURI" -v ON_ERROR_STOP=1 \
             -c "update public.profiles set role = 'owner' where id = (select id from auth.users where email = '$PROMOTE_EMAIL');" \
             -c "select u.email, p.display_name, p.role from auth.users u join public.profiles p on p.id = u.id where u.email = '$PROMOTE_EMAIL';"
+
+      - name: Run test SQL
+        if: ${{ inputs.test_sql_b64 != '' }}
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          TEST_SQL_B64: ${{ inputs.test_sql_b64 }}
+        run: |
+          echo "$TEST_SQL_B64" | base64 -d > /tmp/test.sql
+          psql "$PGURI" -v ON_ERROR_STOP=1 -f /tmp/test.sql
+          shred -u /tmp/test.sql
