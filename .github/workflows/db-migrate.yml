@@ -1,0 +1,47 @@
+# One-time / on-demand database migration runner for the Supabase project.
+# Trigger manually: Actions -> "DB migrate" -> Run workflow.
+# Uses the SUPABASE_DB_PASSWORD repo secret (delete it after use).
+name: DB migrate
+
+on:
+  workflow_dispatch:
+    inputs:
+      verify_only:
+        description: 'Only verify the DB connection (skip migration)'
+        type: boolean
+        default: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Verify connection
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          psql "postgresql://postgres@db.cqdqljmvlrtqwzzgqiqt.supabase.co:5432/postgres?sslmode=require" \
+            -c "select current_user as connected_as;"
+
+      - name: Run migration
+        if: ${{ inputs.verify_only != true }}
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          psql "postgresql://postgres@db.cqdqljmvlrtqwzzgqiqt.supabase.co:5432/postgres?sslmode=require" \
+            -v ON_ERROR_STOP=1 -f supabase/migrations/001_profiles.sql
+
+      - name: Confirm objects
+        if: ${{ inputs.verify_only != true }}
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          psql "postgresql://postgres@db.cqdqljmvlrtqwzzgqiqt.supabase.co:5432/postgres?sslmode=require" \
+            -c "select tablename from pg_tables where schemaname='public' and tablename='profiles';" \
+            -c "select policyname from pg_policies where tablename='profiles';" \
+            -c "select tgname from pg_trigger where tgname in ('profiles_no_role_escalation','on_auth_user_created');"
