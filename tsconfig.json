@@ -1,0 +1,1 @@
+{"compilerOptions":{"esModuleInterop":true,"forceConsistentCasingInFileNames":true,"lib":["ES2022"],"module":"NodeNext","moduleResolution":"NodeNext","outDir":"dist","resolveJsonModule":true,"rootDir":".","skipLibCheck":true,"strict":true,"target":"ES2022","types":["node"]},"include":["api/**/*.ts","scripts/**/*.ts"]}
