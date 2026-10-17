@@ -14,6 +14,18 @@ Row Level Security, not by secrecy.
 
 The admin panel keeps its existing GitHub OAuth variables unchanged.
 
+## Admin panel only (`muteeb-movie-admin`, server-side)
+
+Set on the admin Vercel project (Production + Preview), then redeploy.
+Server-side only — never use a `VITE_` prefix, never put it in frontend code.
+
+| Variable | Public? | Required | Purpose |
+|---|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | **No — secret** | Yes, for user management | Powers the privileged admin API (list/ban/delete users, password resets, session revocation, audit log). All endpoints verify the caller's staff role server-side before using it. |
+
+Find it in the Supabase dashboard: Project Settings → API → `service_role`
+key. If it ever leaks, roll it from the same page.
+
 ## Never use
 
 - `SUPABASE_SERVICE_ROLE_KEY` must **never** appear in frontend code,
