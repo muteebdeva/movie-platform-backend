@@ -19,20 +19,6 @@
 --     moderation tables are visible only to staff roles via my_role().
 
 -- ---------------------------------------------------------------------------
--- 0. Staff-role helper (security definer so RLS policies can read the
---    caller's own profile row without recursion).
--- ---------------------------------------------------------------------------
-create or replace function public.my_role()
-returns text
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select role from public.profiles where id = auth.uid()
-$$;
-
--- ---------------------------------------------------------------------------
 -- 1. Roles on profiles.
 -- ---------------------------------------------------------------------------
 alter table public.profiles
@@ -45,6 +31,21 @@ update public.profiles set role = 'admin' where is_admin = true and role = 'user
 -- The project owner. (Change the email if this migration is reused elsewhere.)
 update public.profiles set role = 'owner'
 where id = (select id from auth.users where email = 'devamuteeb@gmail.com');
+
+-- ---------------------------------------------------------------------------
+-- 1b. Staff-role helper (security definer so RLS policies can read the
+--     caller's own profile row without recursion). Defined AFTER the role
+--     column exists — Postgres validates SQL function bodies at creation.
+-- ---------------------------------------------------------------------------
+create or replace function public.my_role()
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select role from public.profiles where id = auth.uid()
+$$;
 
 -- Replace the old escalation trigger: guard `role` now, keep `is_admin`
 -- in sync so already-deployed code keeps working until it reads `role`.
