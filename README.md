@@ -1,39 +1,33 @@
 # movie-platform-backend
 
-Shared authentication backend and PostgreSQL database for the movie platform
-(`muteeb-movie`) and the admin panel (`muteeb-movie-admin`).
+Shared Supabase backend for the movie platform (`muteeb-movie`) and the
+admin panel (`muteeb-movie-admin`): one Supabase project is the single source
+of truth for authentication and user data.
 
-Single source of truth for user identity: email/password accounts, sessions,
-roles, email verification, and password reset — used by both frontends.
+**Supabase Auth** owns credentials (email/password, sessions, email
+verification, password reset). This repo holds:
 
-## Layout
+- `supabase/migrations/` — versioned SQL: `profiles` table, Row Level
+  Security policies, anti-escalation trigger, auto-profile trigger.
+- `docs/` — setup, environment variables, frontend integration, recovery.
 
-- `api/` — Vercel serverless functions (deployed as their own Vercel project)
-  - `api/auth/` — signup, signin, signout, me, verify-email,
-    request-password-reset, reset-password, admin/bootstrap
-  - `api/_lib/` — db, passwords (scrypt), sessions, rate limiting, email,
-    validation, audit, CORS, response helpers
-- `migrations/` — versioned SQL migrations (`scripts/migrate.ts` applies them)
-- `scripts/` — migrate, smoke tests
-- `docs/` — SETUP.md, ENV.md, INTEGRATION.md (frontend wiring guide)
-- `integrations/vercel-proxy/` — copy-paste `/api/auth/*` proxy routes for the
-  frontends (keeps cookies first-party per domain)
+There is no custom password system and no second user database. The previous
+Neon-based custom auth server was removed when the project moved to Supabase
+(see git history); Supabase Auth replaces it entirely.
 
 ## Quick start
 
-See `docs/SETUP.md`. In short:
+1. Create a free Supabase project at https://supabase.com.
+2. Run `supabase/migrations/001_profiles.sql` in the dashboard SQL Editor.
+3. Follow `docs/SETUP.md` (redirect URLs, email settings).
+4. Set `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` on both Vercel
+   projects (see `docs/ENV.md`).
+5. Promote yourself to admin with the SQL in `docs/SETUP.md`.
 
-1. Create a free Neon Postgres database, copy the pooled connection string.
-2. `cp .env.example .env` and fill in `DATABASE_URL`.
-3. `npm install && npm run migrate`
-4. Deploy to Vercel, set the env vars from `docs/ENV.md`.
+## Security model
 
-## Security notes
-
-- Passwords: scrypt (N=16384, r=8, p=1) via Node's built-in crypto. Never
-  plaintext, never logged, never returned.
-- Sessions: 256-bit random tokens, SHA-256 hashed at rest, HttpOnly cookies.
-- Public signup can only create `role = 'user'`. Admin is granted via the
-  one-time `admin/bootstrap` endpoint guarded by `BOOTSTRAP_SECRET`.
-- Rate limiting is enforced in Postgres (per IP / per email).
-- Security events are audit-logged without secrets.
+- Passwords never touch this repo — Supabase Auth hashes and stores them.
+- `profiles.is_admin` can only be changed via the service-role key or direct
+  database access (trigger-enforced); RLS stops users reading or editing
+  anyone else's row.
+- The service-role key is never placed in frontend code or committed.
