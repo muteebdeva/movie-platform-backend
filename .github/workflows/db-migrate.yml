@@ -1,6 +1,9 @@
 # One-time / on-demand database migration runner for the Supabase project.
 # Trigger manually: Actions -> "DB migrate" -> Run workflow.
 # Uses the SUPABASE_DB_PASSWORD repo secret (delete it after use).
+#
+# Connects via the Supavisor pooler (IPv4, session mode) because the direct
+# db.* hostname is IPv6-only and GitHub runners lack IPv6 egress.
 name: DB migrate
 
 on:
@@ -11,6 +14,9 @@ on:
         type: boolean
         default: false
 
+env:
+  PGURI: postgresql://postgres.cqdqljmvlrtqwzzgqiqt@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
+
 jobs:
   migrate:
     runs-on: ubuntu-latest
@@ -19,37 +25,27 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install PostgreSQL client
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client dnsutils
-
-      - name: Resolve database IPv4
-        id: dbip
-        run: |
-          IP=$(dig +short A db.cqdqljmvlrtqwzzgqiqt.supabase.co | head -n 1)
-          if [ -z "$IP" ]; then echo "Could not resolve database IPv4"; exit 1; fi
-          echo "ip=$IP" >> "$GITHUB_OUTPUT"
-          echo "Database IPv4: $IP"
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
       - name: Verify connection
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          psql "postgresql://postgres@${{ steps.dbip.outputs.ip }}:5432/postgres?sslmode=require" \
-            -c "select current_user as connected_as;"
+          psql "$PGURI" -c "select current_user as connected_as;"
 
       - name: Run migration
         if: ${{ inputs.verify_only != true }}
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          psql "postgresql://postgres@${{ steps.dbip.outputs.ip }}:5432/postgres?sslmode=require" \
-            -v ON_ERROR_STOP=1 -f supabase/migrations/001_profiles.sql
+          psql "$PGURI" -v ON_ERROR_STOP=1 -f supabase/migrations/001_profiles.sql
 
       - name: Confirm objects
         if: ${{ inputs.verify_only != true }}
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          psql "postgresql://postgres@${{ steps.dbip.outputs.ip }}:5432/postgres?sslmode=require" \
+          psql "$PGURI" \
             -c "select tablename from pg_tables where schemaname='public' and tablename='profiles';" \
             -c "select policyname from pg_policies where tablename='profiles';" \
             -c "select tgname from pg_trigger where tgname in ('profiles_no_role_escalation','on_auth_user_created');"
