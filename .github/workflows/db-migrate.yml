@@ -1,4 +1,4 @@
-# One-time / on-demand database migration runner for the Supabase project.
+# One-time / on-demand database operations for the Supabase project.
 # Trigger manually: Actions -> "DB migrate" -> Run workflow.
 # Uses the SUPABASE_DB_PASSWORD repo secret (delete it after use).
 #
@@ -10,9 +10,13 @@ on:
   workflow_dispatch:
     inputs:
       verify_only:
-        description: 'Only verify the DB connection (skip migration)'
+        description: 'Only verify the DB connection (skip all operations)'
         type: boolean
         default: false
+      promote_email:
+        description: 'Email address to promote to admin (leave empty to skip)'
+        type: string
+        default: ''
 
 env:
   PGURI: postgresql://postgres.cqdqljmvlrtqwzzgqiqt@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
@@ -34,14 +38,14 @@ jobs:
           psql "$PGURI" -c "select current_user as connected_as;"
 
       - name: Run migration
-        if: ${{ inputs.verify_only != true }}
+        if: ${{ inputs.verify_only != true && inputs.promote_email == '' }}
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           psql "$PGURI" -v ON_ERROR_STOP=1 -f supabase/migrations/001_profiles.sql
 
       - name: Confirm objects
-        if: ${{ inputs.verify_only != true }}
+        if: ${{ inputs.verify_only != true && inputs.promote_email == '' }}
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
@@ -49,3 +53,13 @@ jobs:
             -c "select tablename from pg_tables where schemaname='public' and tablename='profiles';" \
             -c "select policyname from pg_policies where tablename='profiles';" \
             -c "select tgname from pg_trigger where tgname in ('profiles_no_role_escalation','on_auth_user_created');"
+
+      - name: Promote admin
+        if: ${{ inputs.promote_email != '' }}
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PROMOTE_EMAIL: ${{ inputs.promote_email }}
+        run: |
+          psql "$PGURI" -v ON_ERROR_STOP=1 \
+            -c "update public.profiles set is_admin = true where id = (select id from auth.users where email = '$PROMOTE_EMAIL');" \
+            -c "select u.email, p.display_name, p.is_admin from auth.users u join public.profiles p on p.id = u.id where u.email = '$PROMOTE_EMAIL';"
