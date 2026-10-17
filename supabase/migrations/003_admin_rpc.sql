@@ -57,7 +57,7 @@ declare
   v_role text;
 begin
   select display_name, role into v_label, v_role from public.profiles where id = v_uid;
-  if v_role not in ('owner', 'admin', 'moderator', 'analyst') then
+  if coalesce(v_role, '') not in ('owner', 'admin', 'moderator', 'analyst') then
     raise exception 'forbidden';
   end if;
   insert into public.admin_audit_log (admin_id, admin_label, action, target_type, target_id, details, outcome, reason)
@@ -87,7 +87,7 @@ set search_path = public
 stable
 as $$
 begin
-  if public.my_role() not in ('owner', 'admin', 'moderator') then
+  if coalesce(public.my_role(), '') not in ('owner', 'admin', 'moderator') then
     raise exception 'forbidden';
   end if;
   return query
@@ -119,7 +119,7 @@ as $$
 declare
   v_old text;
 begin
-  if public.my_role() <> 'owner' then
+  if coalesce(public.my_role(), '') <> 'owner' then
     raise exception 'forbidden';
   end if;
   if p_new_role not in ('owner', 'admin', 'moderator', 'analyst', 'user') then
@@ -154,7 +154,7 @@ declare
   v_caller_role text := public.my_role();
   v_target_role text;
 begin
-  if v_caller_role not in ('owner', 'admin', 'moderator') then
+  if coalesce(v_caller_role, '') not in ('owner', 'admin', 'moderator') then
     raise exception 'forbidden';
   end if;
   if p_target_id = auth.uid() then
@@ -192,7 +192,7 @@ declare
   v_caller_role text := public.my_role();
   v_target_role text;
 begin
-  if v_caller_role not in ('owner', 'admin', 'moderator') then
+  if coalesce(v_caller_role, '') not in ('owner', 'admin', 'moderator') then
     raise exception 'forbidden';
   end if;
   select role into v_target_role from public.profiles where id = p_target_id;
@@ -222,7 +222,7 @@ declare
   v_caller_role text := public.my_role();
   v_target_role text;
 begin
-  if v_caller_role not in ('owner', 'admin') then
+  if coalesce(v_caller_role, '') not in ('owner', 'admin') then
     raise exception 'forbidden';
   end if;
   if p_target_id = auth.uid() then
@@ -257,7 +257,7 @@ as $$
 declare
   v_caller_role text := public.my_role();
 begin
-  if v_caller_role not in ('owner', 'admin', 'moderator') then
+  if coalesce(v_caller_role, '') not in ('owner', 'admin', 'moderator') then
     raise exception 'forbidden';
   end if;
   if p_target_id = auth.uid() then
@@ -284,7 +284,7 @@ as $$
 declare
   v_id uuid;
 begin
-  if public.my_role() not in ('owner', 'admin') then
+  if coalesce(public.my_role(), '') not in ('owner', 'admin') then
     raise exception 'forbidden';
   end if;
   if p_title is null or char_length(p_title) = 0 or char_length(p_title) > 120 then
@@ -318,7 +318,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if public.my_role() not in ('owner', 'admin') then
+  if coalesce(public.my_role(), '') not in ('owner', 'admin') then
     raise exception 'forbidden';
   end if;
   if p_op = 'publish' then
@@ -346,7 +346,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if public.my_role() not in ('owner', 'admin', 'moderator') then
+  if coalesce(public.my_role(), '') not in ('owner', 'admin', 'moderator') then
     raise exception 'forbidden';
   end if;
   if p_note is null or char_length(trim(p_note)) = 0 or char_length(p_note) > 2000 then
@@ -371,7 +371,7 @@ as $$
 declare
   v_login text;
 begin
-  if public.my_role() not in ('owner', 'admin', 'moderator') then
+  if coalesce(public.my_role(), '') not in ('owner', 'admin', 'moderator') then
     raise exception 'forbidden';
   end if;
   if p_status not in ('open', 'reviewing', 'resolved', 'dismissed') then
